@@ -56,6 +56,16 @@ public sealed partial class MainWindow : Window
         if (_vm.Opacity < 1.0)
             WindowHelper.SetOpacity(this, _vm.Opacity);
 
+        // Reduce opacity when window loses focus
+        this.Activated += (_, args) =>
+        {
+            double baseOpacity = _vm.Opacity;
+            if (args.WindowActivationState == WindowActivationState.Deactivated)
+                WindowHelper.SetOpacity(this, Math.Max(0.1, baseOpacity - 0.2));
+            else
+                WindowHelper.SetOpacity(this, baseOpacity);
+        };
+
         // Hide from taskbar, show in system tray
         var appWindow = WindowHelper.GetAppWindow(this);
         appWindow.IsShownInSwitchers = false;
