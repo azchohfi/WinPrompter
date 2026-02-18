@@ -6,6 +6,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using WinPrompter.Helpers;
+using WinPrompter.Models;
 using WinPrompter.Services;
 
 namespace WinPrompter;
@@ -17,6 +18,8 @@ public sealed partial class MainWindow : Window
     private readonly SettingsService _settingsService = new();
     private WebViewBridge? _bridge;
     private DispatcherTimer? _overlayHideTimer;
+    private readonly VoiceAdvanceService _voiceService = new();
+    private readonly ScriptWordIndex _scriptWordIndex = new();
 
     public MainWindow()
     {
@@ -47,6 +50,39 @@ public sealed partial class MainWindow : Window
         WindowHelper.ConfigureAsFloatingPrompter(this);
         if (_vm.Opacity < 1.0)
             WindowHelper.SetOpacity(this, _vm.Opacity);
+
+        // Wire up voice auto-advance events
+        _voiceService.PositionAdvanced += charOffset =>
+        {
+            DispatcherQueue.TryEnqueue(async () =>
+            {
+                if (_bridge != null)
+                    await _bridge.ScrollToWordIndexAsync(charOffset);
+            });
+        };
+        _voiceService.ListeningChanged += listening =>
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _vm.IsVoiceMode = listening;
+                VoiceIndicator.Visibility = listening ? Visibility.Visible : Visibility.Collapsed;
+                BtnVoice.IsChecked = listening;
+            });
+        };
+        _voiceService.RecognizedText += text =>
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                VoiceStatusText.Text = text.Length > 40 ? text[..40] + "…" : text;
+            });
+        };
+        _voiceService.ErrorOccurred += err =>
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                VoiceStatusText.Text = err;
+            });
+        };
 
         // Keyboard handling on the root grid
         RootGrid.KeyDown += RootGrid_KeyDown;
@@ -245,6 +281,10 @@ public sealed partial class MainWindow : Window
             OpacitySlider.Value = _vm.Opacity * 100;
             SaveSettings();
         }
+        else if (!ctrl && !alt && key == "v")
+        {
+            await ToggleVoiceAsync();
+        }
     }
 
     // ── Playback ──
@@ -312,6 +352,11 @@ public sealed partial class MainWindow : Window
 
         var html = _markdownService.ConvertToHtml(markdown);
         _vm.HtmlContent = html;
+
+        // Build word index for voice auto-advance
+        var words = _markdownService.ExtractWords(markdown);
+        _scriptWordIndex.Build(words);
+        _voiceService.LoadScript(_scriptWordIndex);
 
         await _bridge.SetContentAsync(html);
     }
@@ -477,6 +522,29 @@ public sealed partial class MainWindow : Window
     private void BtnFullscreen_Click(object sender, RoutedEventArgs e)
     {
         WindowHelper.ToggleFullscreen(this);
+    }
+
+    private async void BtnVoice_Click(object sender, RoutedEventArgs e)
+    {
+        await ToggleVoiceAsync();
+    }
+
+    private async Task ToggleVoiceAsync()
+    {
+        if (_voiceService.IsListening)
+        {
+            await _voiceService.StopAsync();
+        }
+        else
+        {
+            if (!_vm.HasScript)
+            {
+                VoiceStatusText.Text = "Load a script first";
+                VoiceIndicator.Visibility = Visibility.Visible;
+                return;
+            }
+            await _voiceService.StartAsync();
+        }
     }
 
     private void SaveSettings()

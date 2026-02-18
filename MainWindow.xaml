@@ -121,8 +121,32 @@
                         Click="BtnFullscreen_Click" Padding="8,6">
                     <FontIcon Glyph="&#xE740;" FontSize="16"/>
                 </Button>
+
+                <AppBarSeparator />
+
+                <!-- Voice Auto-Advance -->
+                <ToggleButton x:Name="BtnVoice" ToolTipService.ToolTip="Voice Auto-Advance (V)"
+                              Click="BtnVoice_Click" Padding="8,6">
+                    <FontIcon x:Name="VoiceIcon" Glyph="&#xE720;" FontSize="16"/>
+                </ToggleButton>
             </StackPanel>
         </Grid>
+
+        <!-- Voice status indicator -->
+        <Border x:Name="VoiceIndicator"
+                Visibility="Collapsed"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Left"
+                Margin="12,0,0,12"
+                Padding="8,4"
+                CornerRadius="4"
+                Background="#AA000000">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon Glyph="&#xE720;" FontSize="12" Foreground="#FF4444"/>
+                <TextBlock x:Name="VoiceStatusText" Text="Listening..."
+                           FontSize="11" Foreground="White" Opacity="0.8"/>
+            </StackPanel>
+        </Border>
 
         <!-- Top hover zone to reveal overlay -->
         <Rectangle x:Name="HoverZone"
