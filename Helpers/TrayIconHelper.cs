@@ -75,31 +75,34 @@ public sealed partial class TrayIconHelper : IDisposable
 
     private IntPtr TrayWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
-        if (msg == WM_APP_TRAYICON)
+        try
         {
-            int eventId = (int)(lParam & 0xFFFF);
-            if (eventId == WM_LBUTTONDBLCLK)
+            if (msg == WM_APP_TRAYICON)
             {
-                ShowRequested?.Invoke();
+                int eventId = (int)(lParam & 0xFFFF);
+                if (eventId == WM_LBUTTONDBLCLK)
+                {
+                    ShowRequested?.Invoke();
+                }
+                else if (eventId == WM_RBUTTONUP)
+                {
+                    GetCursorPos(out var pt);
+                    SetForegroundWindow(hWnd);
+                    TrackPopupMenu(_hMenu, TPM_RIGHTALIGN | TPM_BOTTOMALIGN, pt.X, pt.Y, 0, hWnd, IntPtr.Zero);
+                    PostMessage(hWnd, 0 /* WM_NULL */, IntPtr.Zero, IntPtr.Zero);
+                }
+                return IntPtr.Zero;
             }
-            else if (eventId == WM_RBUTTONUP)
-            {
-                // Show context menu at cursor
-                GetCursorPos(out var pt);
-                SetForegroundWindow(hWnd);
-                TrackPopupMenu(_hMenu, TPM_RIGHTALIGN | TPM_BOTTOMALIGN, pt.X, pt.Y, 0, hWnd, IntPtr.Zero);
-                PostMessage(hWnd, 0 /* WM_NULL */, IntPtr.Zero, IntPtr.Zero);
-            }
-            return IntPtr.Zero;
-        }
 
-        if (msg == WM_COMMAND)
-        {
-            int id = (int)(wParam & 0xFFFF);
-            if (id == IDM_SHOW) ShowRequested?.Invoke();
-            else if (id == IDM_EXIT) ExitRequested?.Invoke();
-            return IntPtr.Zero;
+            if (msg == WM_COMMAND)
+            {
+                int id = (int)(wParam & 0xFFFF);
+                if (id == IDM_SHOW) ShowRequested?.Invoke();
+                else if (id == IDM_EXIT) ExitRequested?.Invoke();
+                return IntPtr.Zero;
+            }
         }
+        catch { /* Don't let exceptions in wndproc crash the app */ }
 
         return CallWindowProc(_origWndProc, hWnd, msg, wParam, lParam);
     }

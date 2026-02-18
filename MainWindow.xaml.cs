@@ -109,41 +109,49 @@ public sealed partial class MainWindow : Window
 
     private async void InitializeWebViewAsync()
     {
-        await PrompterWebView.EnsureCoreWebView2Async();
-
-        var packagePath = AppContext.BaseDirectory;
-        PrompterWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
-            "app.local",
-            Path.Combine(packagePath, "Assets", "Web"),
-            CoreWebView2HostResourceAccessKind.Allow);
-
-        // Disable dev tools and context menu for clean UX
-        PrompterWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
-        PrompterWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-        PrompterWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
-        PrompterWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
-
-        _bridge = new WebViewBridge(PrompterWebView);
-        _bridge.Initialize();
-        _bridge.MessageReceived += OnWebViewMessage;
-
-        PrompterWebView.CoreWebView2.Navigate("https://app.local/teleprompter.html");
-
-        // Wait for page load then apply settings
-        PrompterWebView.CoreWebView2.NavigationCompleted += async (_, _) =>
+        try
         {
-            await _bridge.SetThemeAsync(_vm.CurrentTheme);
-            await _bridge.SetFontSizeAsync(_vm.FontSize);
-            await _bridge.SetSpeedAsync(_vm.Speed);
-            await _bridge.SetMirrorAsync(_vm.IsMirrorMode);
+            await PrompterWebView.EnsureCoreWebView2Async();
 
-            // Show welcome message if no script loaded
-            if (!_vm.HasScript)
+            var packagePath = AppContext.BaseDirectory;
+            PrompterWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                "app.local",
+                Path.Combine(packagePath, "Assets", "Web"),
+                CoreWebView2HostResourceAccessKind.Allow);
+
+            // Disable dev tools and context menu for clean UX
+            PrompterWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            PrompterWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+            PrompterWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+            PrompterWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+
+            _bridge = new WebViewBridge(PrompterWebView);
+            _bridge.Initialize();
+            _bridge.MessageReceived += OnWebViewMessage;
+
+            PrompterWebView.CoreWebView2.Navigate("https://app.local/teleprompter.html");
+
+            // Wait for page load then apply settings
+            PrompterWebView.CoreWebView2.NavigationCompleted += async (_, _) =>
             {
-                var welcomeHtml = "<div class='welcome-message'><h1>WinPrompter</h1><p>Right-click or hover at top for controls<br/>Ctrl+O to open · Ctrl+V to paste</p></div>";
-                await _bridge.SetContentAsync(welcomeHtml);
-            }
-        };
+                try
+                {
+                    await _bridge.SetThemeAsync(_vm.CurrentTheme);
+                    await _bridge.SetFontSizeAsync(_vm.FontSize);
+                    await _bridge.SetSpeedAsync(_vm.Speed);
+                    await _bridge.SetMirrorAsync(_vm.IsMirrorMode);
+
+                    // Show welcome message if no script loaded
+                    if (!_vm.HasScript)
+                    {
+                        var welcomeHtml = "<div class='welcome-message'><h1>WinPrompter</h1><p>Right-click or hover at bottom for controls<br/>Ctrl+O to open · Ctrl+V to paste</p></div>";
+                        await _bridge.SetContentAsync(welcomeHtml);
+                    }
+                }
+                catch (Exception ex) { App.LogCrash("NavCompleted", ex); }
+            };
+        }
+        catch (Exception ex) { App.LogCrash("InitWebView", ex); }
     }
 
     private void OnWebViewMessage(string json)
@@ -333,53 +341,64 @@ public sealed partial class MainWindow : Window
 
     private async Task OpenFileAsync()
     {
-        var picker = new FileOpenPicker();
-        picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-        picker.FileTypeFilter.Add(".md");
-        picker.FileTypeFilter.Add(".txt");
-        picker.FileTypeFilter.Add(".markdown");
-
-        // Initialize with window handle
-        var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
-
-        var file = await picker.PickSingleFileAsync();
-        if (file != null)
+        try
         {
-            var text = await FileIO.ReadTextAsync(file);
-            _settingsService.AddRecentFile(file.Path);
-            await LoadMarkdownAsync(text, file.Name);
+            var picker = new FileOpenPicker();
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            picker.FileTypeFilter.Add(".md");
+            picker.FileTypeFilter.Add(".txt");
+            picker.FileTypeFilter.Add(".markdown");
+
+            var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
+
+            var file = await picker.PickSingleFileAsync();
+            if (file != null)
+            {
+                var text = await FileIO.ReadTextAsync(file);
+                _settingsService.AddRecentFile(file.Path);
+                await LoadMarkdownAsync(text, file.Name);
+            }
         }
+        catch (Exception ex) { App.LogCrash("OpenFile", ex); }
     }
 
     private async Task PasteFromClipboardAsync()
     {
-        var content = Clipboard.GetContent();
-        if (content.Contains(StandardDataFormats.Text))
+        try
         {
-            var text = await content.GetTextAsync();
-            if (!string.IsNullOrWhiteSpace(text))
-                await LoadMarkdownAsync(text, "Clipboard");
+            var content = Clipboard.GetContent();
+            if (content.Contains(StandardDataFormats.Text))
+            {
+                var text = await content.GetTextAsync();
+                if (!string.IsNullOrWhiteSpace(text))
+                    await LoadMarkdownAsync(text, "Clipboard");
+            }
         }
+        catch (Exception ex) { App.LogCrash("Paste", ex); }
     }
 
     private async Task LoadMarkdownAsync(string markdown, string sourceName)
     {
-        if (_bridge == null) return;
+        try
+        {
+            if (_bridge == null) return;
 
-        _vm.ScriptMarkdown = markdown;
-        _vm.CurrentFileName = sourceName;
-        _vm.HasScript = true;
+            _vm.ScriptMarkdown = markdown;
+            _vm.CurrentFileName = sourceName;
+            _vm.HasScript = true;
 
-        var html = _markdownService.ConvertToHtml(markdown);
-        _vm.HtmlContent = html;
+            var html = _markdownService.ConvertToHtml(markdown);
+            _vm.HtmlContent = html;
 
-        // Build word index for voice auto-advance
-        var words = _markdownService.ExtractWords(markdown);
-        _scriptWordIndex.Build(words);
-        _voiceService.LoadScript(_scriptWordIndex);
+            // Build word index for voice auto-advance
+            var words = _markdownService.ExtractWords(markdown);
+            _scriptWordIndex.Build(words);
+            _voiceService.LoadScript(_scriptWordIndex);
 
-        await _bridge.SetContentAsync(html);
+            await _bridge.SetContentAsync(html);
+        }
+        catch (Exception ex) { App.LogCrash("LoadMarkdown", ex); }
     }
 
     // ── Drag & Drop ──
@@ -395,21 +414,25 @@ public sealed partial class MainWindow : Window
 
     private async void RootGrid_Drop(object sender, DragEventArgs e)
     {
-        if (e.DataView.Contains(StandardDataFormats.StorageItems))
+        try
         {
-            var items = await e.DataView.GetStorageItemsAsync();
-            foreach (var item in items)
+            if (e.DataView.Contains(StandardDataFormats.StorageItems))
             {
-                if (item is StorageFile file &&
-                    (file.FileType == ".md" || file.FileType == ".txt" || file.FileType == ".markdown"))
+                var items = await e.DataView.GetStorageItemsAsync();
+                foreach (var item in items)
                 {
-                    var text = await FileIO.ReadTextAsync(file);
-                    _settingsService.AddRecentFile(file.Path);
-                    await LoadMarkdownAsync(text, file.Name);
-                    break;
+                    if (item is StorageFile file &&
+                        (file.FileType == ".md" || file.FileType == ".txt" || file.FileType == ".markdown"))
+                    {
+                        var text = await FileIO.ReadTextAsync(file);
+                        _settingsService.AddRecentFile(file.Path);
+                        await LoadMarkdownAsync(text, file.Name);
+                        break;
+                    }
                 }
             }
         }
+        catch (Exception ex) { App.LogCrash("Drop", ex); }
     }
 
     // ── Overlay ──
