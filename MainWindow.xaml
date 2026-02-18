@@ -129,6 +129,18 @@
                               Click="BtnVoice_Click" Padding="8,6">
                     <FontIcon x:Name="VoiceIcon" Glyph="&#xE720;" FontSize="16"/>
                 </ToggleButton>
+
+                <AppBarSeparator />
+                <!-- Settings -->
+                <Button x:Name="BtnSettings" ToolTipService.ToolTip="Settings"
+                        Click="BtnSettings_Click" Padding="8,6">
+                    <FontIcon Glyph="&#xE713;" FontSize="16"/>
+                </Button>
+                <!-- About -->
+                <Button x:Name="BtnAbout" ToolTipService.ToolTip="About / Help"
+                        Click="BtnAbout_Click" Padding="8,6">
+                    <FontIcon Glyph="&#xE897;" FontSize="16"/>
+                </Button>
             </StackPanel>
         </Grid>
 

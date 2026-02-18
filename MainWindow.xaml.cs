@@ -623,6 +623,147 @@ public sealed partial class MainWindow : Window
         catch { SectionsFlyout.Items.Add(new MenuFlyoutItem { Text = "(no sections)", IsEnabled = false }); }
     }
 
+    // ── Settings Dialog ──
+
+    private async void BtnSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var fontSizeSlider = new Slider { Minimum = 24, Maximum = 120, Value = _settingsService.FontSize, StepFrequency = 1 };
+        var speedSlider = new Slider { Minimum = 0.5, Maximum = 5.0, Value = _settingsService.Speed, StepFrequency = 0.25 };
+        var themeCombo = new ComboBox { Width = 200 };
+        foreach (var name in MainViewModel.ThemeDisplayNames) themeCombo.Items.Add(name);
+        themeCombo.SelectedIndex = Array.IndexOf(MainViewModel.AvailableThemes, _settingsService.Theme);
+        var mirrorToggle = new ToggleSwitch { IsOn = _settingsService.MirrorMode };
+        var opacitySlider = new Slider { Minimum = 10, Maximum = 100, Value = _settingsService.Opacity * 100, StepFrequency = 5 };
+        var countdownToggle = new ToggleSwitch { IsOn = _settingsService.CountdownEnabled };
+        var voiceSensitivitySlider = new Slider { Minimum = 1, Maximum = 5, Value = _settingsService.VoiceSensitivity, StepFrequency = 1 };
+
+        var panel = new StackPanel { Spacing = 12, MinWidth = 350 };
+        panel.Children.Add(new TextBlock { Text = "Default Font Size" });
+        panel.Children.Add(fontSizeSlider);
+        panel.Children.Add(new TextBlock { Text = "Default Speed" });
+        panel.Children.Add(speedSlider);
+        panel.Children.Add(new TextBlock { Text = "Default Theme" });
+        panel.Children.Add(themeCombo);
+        panel.Children.Add(new TextBlock { Text = "Start in Mirror Mode" });
+        panel.Children.Add(mirrorToggle);
+        panel.Children.Add(new TextBlock { Text = "Default Opacity (%)" });
+        panel.Children.Add(opacitySlider);
+        panel.Children.Add(new TextBlock { Text = "Countdown before play" });
+        panel.Children.Add(countdownToggle);
+        panel.Children.Add(new TextBlock { Text = "Voice Sensitivity (1=strict, 5=loose)" });
+        panel.Children.Add(voiceSensitivitySlider);
+
+        var dialog = new ContentDialog
+        {
+            Title = "Settings",
+            Content = panel,
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = Content.XamlRoot
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            _settingsService.FontSize = fontSizeSlider.Value;
+            _settingsService.Speed = speedSlider.Value;
+            if (themeCombo.SelectedIndex >= 0)
+                _settingsService.Theme = MainViewModel.AvailableThemes[themeCombo.SelectedIndex];
+            _settingsService.MirrorMode = mirrorToggle.IsOn;
+            _settingsService.Opacity = opacitySlider.Value / 100.0;
+            _settingsService.CountdownEnabled = countdownToggle.IsOn;
+            _settingsService.VoiceSensitivity = (int)voiceSensitivitySlider.Value;
+
+            // Apply to view model and UI
+            _vm.LoadSettings(_settingsService);
+            SpeedText.Text = $"{_vm.Speed:F2}x";
+            FontSizeText.Text = $"{_vm.FontSize:F0}";
+            OpacitySlider.Value = _vm.Opacity * 100;
+            ThemeCombo.SelectedIndex = Array.IndexOf(MainViewModel.AvailableThemes, _vm.CurrentTheme);
+            BtnMirror.IsChecked = _vm.IsMirrorMode;
+            WindowHelper.SetOpacity(this, _vm.Opacity);
+
+            if (_bridge != null)
+            {
+                await _bridge.SetFontSizeAsync(_vm.FontSize);
+                await _bridge.SetSpeedAsync(_vm.Speed);
+                await _bridge.SetThemeAsync(_vm.CurrentTheme);
+                await _bridge.SetMirrorAsync(_vm.IsMirrorMode);
+            }
+        }
+    }
+
+    // ── About / Help Dialog ──
+
+    private async void BtnAbout_Click(object sender, RoutedEventArgs e)
+    {
+        var panel = new StackPanel { Spacing = 12, MinWidth = 380 };
+
+        panel.Children.Add(new TextBlock { Text = "WinPrompter", FontSize = 22, FontWeight = Microsoft.UI.Text.FontWeights.Bold });
+        panel.Children.Add(new TextBlock { Text = "Version 1.0.0", Opacity = 0.7 });
+        panel.Children.Add(new TextBlock { Text = "A modern teleprompter for Windows, powered by WinUI 3 and WebView2.", TextWrapping = TextWrapping.Wrap });
+
+        // Keyboard shortcuts
+        panel.Children.Add(new TextBlock { Text = "Keyboard Shortcuts", FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
+
+        var shortcutsGrid = new Grid();
+        shortcutsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+        shortcutsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        string[][] shortcuts =
+        [
+            ["Ctrl +/−", "Font size"],
+            ["Alt Up/Down", "Speed"],
+            ["Space", "Play / Pause"],
+            ["Escape", "Stop & reset"],
+            ["F / F11", "Fullscreen"],
+            ["M", "Mirror"],
+            ["V", "Voice mode"],
+            ["Ctrl+O", "Open file"],
+            ["Ctrl+V", "Paste"],
+            ["[ / ]", "Opacity"]
+        ];
+
+        for (int i = 0; i < shortcuts.Length; i++)
+        {
+            shortcutsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var keyText = new TextBlock
+            {
+                Text = shortcuts[i][0],
+                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
+                Opacity = 0.9,
+                Margin = new Thickness(0, 2, 0, 2)
+            };
+            Grid.SetRow(keyText, i);
+            Grid.SetColumn(keyText, 0);
+            shortcutsGrid.Children.Add(keyText);
+
+            var descText = new TextBlock
+            {
+                Text = shortcuts[i][1],
+                Opacity = 0.7,
+                Margin = new Thickness(0, 2, 0, 2)
+            };
+            Grid.SetRow(descText, i);
+            Grid.SetColumn(descText, 1);
+            shortcutsGrid.Children.Add(descText);
+        }
+
+        panel.Children.Add(shortcutsGrid);
+        panel.Children.Add(new TextBlock { Text = "Built with WinUI 3 and \u2764\uFE0F", Opacity = 0.6, Margin = new Thickness(0, 8, 0, 0) });
+
+        var dialog = new ContentDialog
+        {
+            Title = "About WinPrompter",
+            Content = panel,
+            CloseButtonText = "OK",
+            XamlRoot = Content.XamlRoot
+        };
+
+        await dialog.ShowAsync();
+    }
+
     private record HeadingInfo(
         [property: System.Text.Json.Serialization.JsonPropertyName("level")] int Level,
         [property: System.Text.Json.Serialization.JsonPropertyName("text")] string Text,

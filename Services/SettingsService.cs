@@ -47,6 +47,18 @@ public class SettingsService
         set { SetValue("Opacity", value); Save(); }
     }
 
+    public bool CountdownEnabled
+    {
+        get => GetValue<bool>("CountdownEnabled", true);
+        set { SetValue("CountdownEnabled", value); Save(); }
+    }
+
+    public int VoiceSensitivity
+    {
+        get => (int)GetValue<double>("VoiceSensitivity", 3);
+        set { SetValue("VoiceSensitivity", value); Save(); }
+    }
+
     public string RecentFilesJson
     {
         get => GetValue<string>("RecentFiles", "[]");
