@@ -12,16 +12,20 @@
           AllowDrop="True"
           DragOver="RootGrid_DragOver"
           Drop="RootGrid_Drop">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition x:Name="OverlayRow" Height="Auto"/>
+        </Grid.RowDefinitions>
 
         <!-- Teleprompter WebView -->
         <WebView2 x:Name="PrompterWebView"
-                  DefaultBackgroundColor="Black"
-                  Margin="0,0,0,0"/>
+                  Grid.Row="0"
+                  DefaultBackgroundColor="Black"/>
 
         <!-- Settings Overlay at BOTTOM (hidden by default) -->
         <Grid x:Name="OverlayPanel"
+              Grid.Row="1"
               Visibility="Collapsed"
-              VerticalAlignment="Bottom"
               HorizontalAlignment="Stretch"
               Padding="12,8"
               CornerRadius="0,0,12,12"
@@ -160,6 +164,7 @@
 
         <!-- Voice status indicator -->
         <Border x:Name="VoiceIndicator"
+                Grid.Row="0"
                 Visibility="Collapsed"
                 VerticalAlignment="Bottom"
                 HorizontalAlignment="Left"
@@ -176,6 +181,7 @@
 
         <!-- Bottom hover zone to reveal overlay -->
         <Rectangle x:Name="HoverZone"
+                   Grid.Row="0"
                    VerticalAlignment="Bottom"
                    Height="30"
                    Fill="Transparent"

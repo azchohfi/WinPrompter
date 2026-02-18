@@ -62,7 +62,7 @@
         if (state.scrollPosition >= maxScroll) {
             state.scrollPosition = maxScroll;
             state.isScrolling = false;
-            notify({ type: 'scrollComplete' });
+            // Just pause at the end — don't exit, allow user to scroll back
             notify({ type: 'playbackChanged', isPlaying: false });
         }
 
@@ -290,6 +290,17 @@
         e.preventDefault();
         notify({ type: 'rightclick' });
     });
+
+    // Allow manual scroll with mouse wheel (even while paused)
+    document.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        state.scrollPosition += e.deltaY;
+        var maxScroll = getMaxScroll();
+        state.scrollPosition = Math.max(0, Math.min(state.scrollPosition, maxScroll));
+        content.style.transform = 'translateY(' + (-state.scrollPosition) + 'px)';
+        var percent = maxScroll > 0 ? (state.scrollPosition / maxScroll) * 100 : 0;
+        progressFill.style.width = percent + '%';
+    }, { passive: false });
 
     window.addEventListener('resize', function () {
         updateMetrics();
