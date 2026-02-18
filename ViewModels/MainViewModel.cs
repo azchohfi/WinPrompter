@@ -6,7 +6,7 @@ namespace WinPrompter.ViewModels
         [ObservableProperty] private string _htmlContent = string.Empty;
         [ObservableProperty] private bool _isPlaying;
         [ObservableProperty] private double _speed = 1.0;
-        [ObservableProperty] private double _fontSize = 28;
+        [ObservableProperty] private double _fontSize = 14;
         [ObservableProperty] private string _currentTheme = "classic";
         [ObservableProperty] private bool _isMirrorMode;
         [ObservableProperty] private double _opacity = 1.0;
@@ -60,7 +60,7 @@ namespace WinPrompter.ViewModels
         [RelayCommand]
         public void DecreaseFontSize()
         {
-            FontSize = Math.Max(24, FontSize - 4);
+            FontSize = Math.Max(8, FontSize - 4);
         }
 
         [RelayCommand]
