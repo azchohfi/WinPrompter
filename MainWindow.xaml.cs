@@ -20,6 +20,7 @@ public sealed partial class MainWindow : Window
     private DispatcherTimer? _overlayHideTimer;
     private readonly VoiceAdvanceService _voiceService = new();
     private readonly ScriptWordIndex _scriptWordIndex = new();
+    private TrayIconHelper? _trayIcon;
 
     public MainWindow()
     {
@@ -50,6 +51,20 @@ public sealed partial class MainWindow : Window
         WindowHelper.ConfigureAsFloatingPrompter(this);
         if (_vm.Opacity < 1.0)
             WindowHelper.SetOpacity(this, _vm.Opacity);
+
+        // Hide from taskbar, show in system tray
+        var appWindow = WindowHelper.GetAppWindow(this);
+        appWindow.IsShownInSwitchers = false;
+
+        _trayIcon = new TrayIconHelper(this);
+        _trayIcon.ShowRequested += () => DispatcherQueue.TryEnqueue(() =>
+        {
+            this.Activate();
+        });
+        _trayIcon.ExitRequested += () => DispatcherQueue.TryEnqueue(() =>
+        {
+            ExitApp();
+        });
 
         // Wire up voice auto-advance events
         _voiceService.PositionAdvanced += charOffset =>
@@ -552,6 +567,18 @@ public sealed partial class MainWindow : Window
             }
             await _voiceService.StartAsync();
         }
+    }
+
+    private void BtnExit_Click(object sender, RoutedEventArgs e)
+    {
+        ExitApp();
+    }
+
+    private void ExitApp()
+    {
+        _trayIcon?.Dispose();
+        _voiceService.Dispose();
+        this.Close();
     }
 
     private void SaveSettings()

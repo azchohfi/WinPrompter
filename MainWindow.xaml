@@ -146,6 +146,14 @@
                         Click="BtnAbout_Click" Padding="8,6">
                     <FontIcon Glyph="&#xE897;" FontSize="16"/>
                 </Button>
+
+                <AppBarSeparator />
+
+                <!-- Exit -->
+                <Button x:Name="BtnExit" ToolTipService.ToolTip="Exit"
+                        Click="BtnExit_Click" Padding="8,6">
+                    <FontIcon Glyph="&#xE7E8;" FontSize="16"/>
+                </Button>
             </StackPanel>
             </ScrollViewer>
         </Grid>
