@@ -1,0 +1,134 @@
+name: Release — Build MSIX & Deploy to Store
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_VERSION: "10.0.x"
+
+jobs:
+  build-msix:
+    name: Build MSIX (${{ matrix.platform }})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform: [x64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}" -replace '^v', ''
+          # Ensure 4-part version (e.g. 1.2.0 → 1.2.0.0)
+          $parts = $tag.Split('.')
+          while ($parts.Count -lt 4) { $parts += '0' }
+          $version = $parts -join '.'
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "TAG_VERSION=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version"
+
+      - name: Decode signing certificate
+        shell: pwsh
+        run: |
+          $pfxBytes = [Convert]::FromBase64String("${{ secrets.STORE_CERTIFICATE_BASE64 }}")
+          [IO.File]::WriteAllBytes("${{ github.workspace }}\SigningCert.pfx", $pfxBytes)
+
+      - name: Update manifest version
+        shell: pwsh
+        run: |
+          $manifest = Get-Content "Package.appxmanifest" -Raw
+          $manifest = $manifest -replace 'Version="[\d\.]+"', "Version=`"${{ steps.version.outputs.VERSION }}`""
+          $manifest = $manifest -replace 'Publisher="[^"]*"', 'Publisher="${{ secrets.STORE_PUBLISHER_ID }}"'
+          $manifest = $manifest -replace 'Name="[^"]*"', 'Name="${{ secrets.STORE_PACKAGE_IDENTITY }}"'
+          Set-Content "Package.appxmanifest" $manifest
+          Write-Host "Updated manifest to version ${{ steps.version.outputs.VERSION }}"
+
+      - name: Build MSIX package
+        run: >
+          dotnet publish WinPrompter.csproj
+          -p:Platform=${{ matrix.platform }}
+          -c Release
+          -p:WindowsPackageType=MSIX
+          -p:AppxBundle=Never
+          -p:AppxPackageSigningEnabled=true
+          -p:PackageCertificateKeyFile="${{ github.workspace }}\SigningCert.pfx"
+          -p:PackageCertificatePassword="${{ secrets.STORE_CERTIFICATE_PASSWORD }}"
+          -p:GenerateAppxPackageOnBuild=true
+          -p:AppxPackageDir="${{ github.workspace }}\AppPackages\${{ matrix.platform }}\"
+
+      - name: Remove signing certificate
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path "${{ github.workspace }}\SigningCert.pfx") {
+            Remove-Item "${{ github.workspace }}\SigningCert.pfx" -Force
+          }
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-${{ matrix.platform }}
+          path: ${{ github.workspace }}/AppPackages/${{ matrix.platform }}/**/*.msix
+          retention-days: 30
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-msix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all MSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: msix-*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/**/*.msix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  store-submit:
+    name: Submit to Microsoft Store
+    needs: build-msix
+    runs-on: ubuntu-latest
+    if: ${{ vars.ENABLE_STORE_SUBMIT == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download x64 MSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: msix-x64
+          path: packages/x64
+
+      - name: Download ARM64 MSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: msix-arm64
+          path: packages/arm64
+
+      - name: Submit to Microsoft Store
+        uses: microsoft/store-submission@v1
+        with:
+          command: UpdateAndSubmit
+          productId: ${{ secrets.STORE_PRODUCT_ID }}
+          tenantId: ${{ secrets.AZURE_TENANT_ID }}
+          clientId: ${{ secrets.AZURE_CLIENT_ID }}
+          clientSecret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          packagePath: packages/
