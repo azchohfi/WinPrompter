@@ -173,83 +173,73 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            using var doc = JsonDocument.Parse(json.Trim('"').Replace("\\\"", "\"").Replace("\\\\", "\\"));
-            var root = doc.RootElement;
-            var type = root.GetProperty("type").GetString();
-
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                switch (type)
-                {
-                    case "progress":
-                        _vm.Progress = root.GetProperty("percent").GetDouble();
-                        break;
-                    case "playbackChanged":
-                        _vm.IsPlaying = root.GetProperty("isPlaying").GetBoolean();
-                        PlayIcon.Glyph = _vm.IsPlaying ? "\uE769" : "\uE768"; // Pause : Play
-                        break;
-                    case "scrollComplete":
-                        _vm.IsPlaying = false;
-                        PlayIcon.Glyph = "\uE768";
-                        break;
-                    case "keydown":
-                        HandleWebViewKeyDown(root);
-                        break;
-                    case "rightclick":
-                        if (_vm.IsOverlayVisible) HideOverlay(); else ShowOverlay();
-                        break;
-                }
-            });
+            var cleaned = json.Trim('"').Replace("\\\"", "\"").Replace("\\\\", "\\");
+            ProcessMessageJson(cleaned);
         }
         catch
         {
-            // Ignore malformed messages — sometimes the JSON from WebView2 is double-encoded
+            // Sometimes the JSON from WebView2 is double-encoded
             try
             {
-                // Try parsing as a raw JSON string (double-encoded)
                 var unescaped = JsonSerializer.Deserialize<string>(json);
                 if (unescaped != null)
-                {
-                    using var doc = JsonDocument.Parse(unescaped);
-                    var root = doc.RootElement;
-                    var type = root.GetProperty("type").GetString();
-
-                    DispatcherQueue.TryEnqueue(() =>
-                    {
-                        switch (type)
-                        {
-                            case "progress":
-                                _vm.Progress = root.GetProperty("percent").GetDouble();
-                                break;
-                            case "playbackChanged":
-                                _vm.IsPlaying = root.GetProperty("isPlaying").GetBoolean();
-                                PlayIcon.Glyph = _vm.IsPlaying ? "\uE769" : "\uE768";
-                                break;
-                            case "scrollComplete":
-                                _vm.IsPlaying = false;
-                                PlayIcon.Glyph = "\uE768";
-                                break;
-                            case "keydown":
-                                HandleWebViewKeyDown(root);
-                                break;
-                            case "rightclick":
-                                if (_vm.IsOverlayVisible) HideOverlay(); else ShowOverlay();
-                                break;
-                        }
-                    });
-                }
+                    ProcessMessageJson(unescaped);
             }
             catch { /* truly malformed, ignore */ }
         }
     }
 
-    private void HandleWebViewKeyDown(JsonElement root)
+    private void ProcessMessageJson(string rawJson)
     {
-        var key = root.GetProperty("key").GetString() ?? "";
-        var ctrl = root.GetProperty("ctrl").GetBoolean();
-        var alt = root.GetProperty("alt").GetBoolean();
+        using var doc = JsonDocument.Parse(rawJson);
+        var root = doc.RootElement;
+        var type = root.GetProperty("type").GetString();
 
-        ProcessShortcut(key, ctrl, alt);
+        // Extract ALL values from JsonDocument NOW, before it's disposed
+        double progressPercent = 0;
+        bool isPlaying = false;
+        string key = "";
+        bool ctrl = false, alt = false;
+
+        switch (type)
+        {
+            case "progress":
+                progressPercent = root.GetProperty("percent").GetDouble();
+                break;
+            case "playbackChanged":
+                isPlaying = root.GetProperty("isPlaying").GetBoolean();
+                break;
+            case "keydown":
+                key = root.GetProperty("key").GetString() ?? "";
+                ctrl = root.GetProperty("ctrl").GetBoolean();
+                alt = root.GetProperty("alt").GetBoolean();
+                break;
+        }
+
+        // Now dispatch to UI thread with only primitive values (no JsonElement refs)
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            switch (type)
+            {
+                case "progress":
+                    _vm.Progress = progressPercent;
+                    break;
+                case "playbackChanged":
+                    _vm.IsPlaying = isPlaying;
+                    PlayIcon.Glyph = _vm.IsPlaying ? "\uE769" : "\uE768";
+                    break;
+                case "scrollComplete":
+                    _vm.IsPlaying = false;
+                    PlayIcon.Glyph = "\uE768";
+                    break;
+                case "keydown":
+                    ProcessShortcut(key, ctrl, alt);
+                    break;
+                case "rightclick":
+                    if (_vm.IsOverlayVisible) HideOverlay(); else ShowOverlay();
+                    break;
+            }
+        });
     }
 
     private async void ProcessShortcut(string key, bool ctrl, bool alt)

@@ -31,6 +31,7 @@ public static partial class WindowHelper
             presenter.IsResizable = true;
             presenter.IsMaximizable = false;
             presenter.IsMinimizable = true;
+            presenter.IsAlwaysOnTop = true;
         }
 
         PositionTopCenter(appWindow, width, height);
