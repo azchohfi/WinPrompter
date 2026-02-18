@@ -238,6 +238,31 @@
                 wpm: state.wordsPerMinute,
             });
         },
+
+        playWithCountdown: function (seconds) {
+            var count = seconds;
+            function showNext() {
+                // Remove any existing countdown overlay
+                var existing = document.querySelector('.countdown-overlay');
+                if (existing) existing.remove();
+
+                if (count <= 0) {
+                    prompter.play();
+                    return;
+                }
+
+                var overlay = document.createElement('div');
+                overlay.className = 'countdown-overlay';
+                overlay.textContent = count;
+                document.body.appendChild(overlay);
+                count--;
+                setTimeout(function () {
+                    overlay.remove();
+                    showNext();
+                }, 1000);
+            }
+            showNext();
+        },
     };
 
     // ── Forward keyboard events to C# ──

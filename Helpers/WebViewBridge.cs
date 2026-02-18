@@ -54,6 +54,9 @@ public class WebViewBridge
     public async Task<string> GetHeadingsAsync()
         => await ExecuteAsync("prompter.getHeadings()") ?? "[]";
 
+    public async Task PlayWithCountdownAsync(int seconds)
+        => await ExecuteAsync($"prompter.playWithCountdown({seconds})");
+
     private async Task<string?> ExecuteAsync(string script)
     {
         try

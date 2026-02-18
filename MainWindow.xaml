@@ -41,6 +41,14 @@
                     <FontIcon Glyph="&#xE77F;" FontSize="16"/>
                 </Button>
 
+                <!-- Recent Files -->
+                <Button x:Name="BtnRecent" ToolTipService.ToolTip="Recent Files" Padding="8,6">
+                    <FontIcon Glyph="&#xE823;" FontSize="16"/>
+                    <Button.Flyout>
+                        <MenuFlyout x:Name="RecentFilesFlyout" Opening="RecentFilesFlyout_Opening"/>
+                    </Button.Flyout>
+                </Button>
+
                 <AppBarSeparator />
 
                 <!-- Playback -->
@@ -82,6 +90,16 @@
                 <ComboBox x:Name="ThemeCombo" Width="130" FontSize="12"
                           SelectionChanged="ThemeCombo_SelectionChanged"
                           VerticalAlignment="Center"/>
+
+                <AppBarSeparator />
+
+                <!-- Sections -->
+                <Button x:Name="BtnSections" ToolTipService.ToolTip="Sections" Padding="8,6">
+                    <FontIcon Glyph="&#xE8FD;" FontSize="16"/>
+                    <Button.Flyout>
+                        <MenuFlyout x:Name="SectionsFlyout" Opening="SectionsFlyout_Opening"/>
+                    </Button.Flyout>
+                </Button>
 
                 <AppBarSeparator />
 

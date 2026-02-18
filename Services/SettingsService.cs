@@ -53,6 +53,24 @@ public class SettingsService
         set { SetValue("RecentFiles", value); Save(); }
     }
 
+    public List<string> GetRecentFiles()
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(RecentFilesJson) ?? [];
+        }
+        catch { return []; }
+    }
+
+    public void AddRecentFile(string path)
+    {
+        var files = GetRecentFiles();
+        files.Remove(path);
+        files.Insert(0, path);
+        if (files.Count > 10) files.RemoveRange(10, files.Count - 10);
+        RecentFilesJson = System.Text.Json.JsonSerializer.Serialize(files);
+    }
+
     private T GetValue<T>(string key, T defaultValue)
     {
         if (_cache.TryGetValue(key, out var value))

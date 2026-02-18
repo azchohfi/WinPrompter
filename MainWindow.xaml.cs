@@ -254,7 +254,7 @@ public sealed partial class MainWindow : Window
         if (_bridge == null) return;
         _vm.TogglePlayPause();
         if (_vm.IsPlaying)
-            await _bridge.PlayAsync();
+            await _bridge.PlayWithCountdownAsync(3);
         else
             await _bridge.PauseAsync();
         PlayIcon.Glyph = _vm.IsPlaying ? "\uE769" : "\uE768";
@@ -286,6 +286,7 @@ public sealed partial class MainWindow : Window
         if (file != null)
         {
             var text = await FileIO.ReadTextAsync(file);
+            _settingsService.AddRecentFile(file.Path);
             await LoadMarkdownAsync(text, file.Name);
         }
     }
@@ -337,6 +338,7 @@ public sealed partial class MainWindow : Window
                     (file.FileType == ".md" || file.FileType == ".txt" || file.FileType == ".markdown"))
                 {
                     var text = await FileIO.ReadTextAsync(file);
+                    _settingsService.AddRecentFile(file.Path);
                     await LoadMarkdownAsync(text, file.Name);
                     break;
                 }
@@ -481,4 +483,80 @@ public sealed partial class MainWindow : Window
     {
         _vm.SaveSettings(_settingsService);
     }
+
+    // ── Recent Files Flyout ──
+
+    private void RecentFilesFlyout_Opening(object sender, object e)
+    {
+        RecentFilesFlyout.Items.Clear();
+        var recentFiles = _settingsService.GetRecentFiles();
+        if (recentFiles.Count == 0)
+        {
+            var empty = new MenuFlyoutItem { Text = "(no recent files)", IsEnabled = false };
+            RecentFilesFlyout.Items.Add(empty);
+            return;
+        }
+        foreach (var path in recentFiles)
+        {
+            var item = new MenuFlyoutItem { Text = Path.GetFileName(path), Tag = path };
+            item.Click += RecentFileItem_Click;
+            RecentFilesFlyout.Items.Add(item);
+        }
+    }
+
+    private async void RecentFileItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.Tag is string path)
+        {
+            try
+            {
+                var file = await StorageFile.GetFileFromPathAsync(path);
+                var text = await FileIO.ReadTextAsync(file);
+                _settingsService.AddRecentFile(path);
+                await LoadMarkdownAsync(text, file.Name);
+            }
+            catch { /* file may no longer exist */ }
+        }
+    }
+
+    // ── Sections Flyout ──
+
+    private async void SectionsFlyout_Opening(object sender, object e)
+    {
+        SectionsFlyout.Items.Clear();
+        if (_bridge == null || !_vm.HasScript)
+        {
+            var empty = new MenuFlyoutItem { Text = "(no sections)", IsEnabled = false };
+            SectionsFlyout.Items.Add(empty);
+            return;
+        }
+        var json = await _bridge.GetHeadingsAsync();
+        try
+        {
+            var headings = JsonSerializer.Deserialize<List<HeadingInfo>>(
+                json.Trim('"').Replace("\\\"", "\"").Replace("\\\\", "\\"));
+            if (headings == null || headings.Count == 0)
+            {
+                SectionsFlyout.Items.Add(new MenuFlyoutItem { Text = "(no sections)", IsEnabled = false });
+                return;
+            }
+            foreach (var h in headings)
+            {
+                var prefix = new string('\u00A0', (h.Level - 1) * 2);
+                var item = new MenuFlyoutItem { Text = prefix + h.Text, Tag = h.OffsetPercent };
+                item.Click += async (s, _) =>
+                {
+                    if (s is MenuFlyoutItem mi && mi.Tag is double pct)
+                        await _bridge!.ScrollToPositionAsync(pct);
+                };
+                SectionsFlyout.Items.Add(item);
+            }
+        }
+        catch { SectionsFlyout.Items.Add(new MenuFlyoutItem { Text = "(no sections)", IsEnabled = false }); }
+    }
+
+    private record HeadingInfo(
+        [property: System.Text.Json.Serialization.JsonPropertyName("level")] int Level,
+        [property: System.Text.Json.Serialization.JsonPropertyName("text")] string Text,
+        [property: System.Text.Json.Serialization.JsonPropertyName("offsetPercent")] double OffsetPercent);
 }
