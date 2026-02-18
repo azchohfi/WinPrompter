@@ -37,7 +37,7 @@ public class SpeechService : IDisposable
             var result = await _recognizer.CompileConstraintsAsync();
             if (result.Status != SpeechRecognitionResultStatus.Success)
             {
-                ErrorOccurred?.Invoke($"Failed to compile constraints: {result.Status}");
+                ErrorOccurred?.Invoke($"Speech compile failed: {result.Status}");
                 return false;
             }
 
@@ -51,9 +51,19 @@ public class SpeechService : IDisposable
             ListeningChanged?.Invoke(true);
             return true;
         }
+        catch (UnauthorizedAccessException)
+        {
+            ErrorOccurred?.Invoke("Microphone access denied — enable in Windows Settings > Privacy > Microphone");
+            return false;
+        }
+        catch (Exception ex) when (ex.HResult == unchecked((int)0x80045509))
+        {
+            ErrorOccurred?.Invoke("Speech recognition not available — enable in Settings > Privacy > Speech");
+            return false;
+        }
         catch (Exception ex)
         {
-            ErrorOccurred?.Invoke($"Speech recognition error: {ex.Message}");
+            ErrorOccurred?.Invoke($"Speech error (0x{ex.HResult:X}): {ex.Message}");
             return false;
         }
     }

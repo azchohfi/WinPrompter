@@ -36,7 +36,8 @@ public sealed partial class MainWindow : Window
         _overlayHideTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _overlayHideTimer.Tick += (_, _) =>
         {
-            HideOverlay();
+            if (!_vm.IsVoiceMode) // Keep overlay visible while voice is active
+                HideOverlay();
             _overlayHideTimer.Stop();
         };
 
@@ -581,19 +582,40 @@ public sealed partial class MainWindow : Window
 
     private async Task ToggleVoiceAsync()
     {
-        if (_voiceService.IsListening)
+        try
         {
-            await _voiceService.StopAsync();
-        }
-        else
-        {
-            if (!_vm.HasScript)
+            if (_voiceService.IsListening)
             {
-                VoiceStatusText.Text = "Load a script first";
-                VoiceIndicator.Visibility = Visibility.Visible;
-                return;
+                await _voiceService.StopAsync();
             }
-            await _voiceService.StartAsync();
+            else
+            {
+                if (!_vm.HasScript)
+                {
+                    VoiceStatusText.Text = "Load a script first";
+                    VoiceIndicator.Visibility = Visibility.Visible;
+                    return;
+                }
+                VoiceStatusText.Text = "Starting voice...";
+                VoiceIndicator.Visibility = Visibility.Visible;
+                ShowOverlay();
+                var started = await _voiceService.StartAsync();
+                if (!started)
+                {
+                    VoiceStatusText.Text = "Voice failed — check mic & speech settings";
+                    App.LogCrash("VoiceStart", new Exception("StartAsync returned false"));
+                }
+                else
+                {
+                    VoiceStatusText.Text = "Listening...";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            VoiceStatusText.Text = $"Voice error: {ex.Message}";
+            VoiceIndicator.Visibility = Visibility.Visible;
+            App.LogCrash("ToggleVoice", ex);
         }
     }
 
