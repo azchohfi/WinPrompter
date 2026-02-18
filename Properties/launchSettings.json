@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "WinPrompter (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "WinPrompter (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

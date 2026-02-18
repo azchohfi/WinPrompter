@@ -1,0 +1,135 @@
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Segoe UI', 'Arial', sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#content {
+    padding: 24px 40px;
+    line-height: 1.5;
+    will-change: transform;
+    transform: translateY(0);
+}
+
+/* ── Themes ── */
+.theme-classic       { background: #000000; color: #FFFFFF; }
+.theme-light          { background: #F5F5F5; color: #1A1A1A; }
+.theme-high-contrast  { background: #000000; color: #FFD700; }
+.theme-green-screen   { background: #00B140; color: #FFFFFF; }
+.theme-studio         { background: #1E1E1E; color: #CCCCCC; }
+.theme-warm           { background: #2C1810; color: #F5DEB3; }
+
+/* ── Typography ── */
+#content h1 { font-size: 1.8em; margin: 0.5em 0 0.3em; font-weight: 700; }
+#content h2 { font-size: 1.5em; margin: 0.4em 0 0.2em; font-weight: 600; }
+#content h3 { font-size: 1.3em; margin: 0.3em 0 0.2em; font-weight: 600; }
+#content p  { margin: 0.3em 0; }
+#content ul, #content ol { margin: 0.3em 0 0.3em 1.5em; }
+#content li { margin: 0.15em 0; }
+#content em { font-style: italic; }
+#content strong { font-weight: 700; }
+#content blockquote {
+    border-left: 4px solid currentColor;
+    opacity: 0.8;
+    padding-left: 1em;
+    margin: 0.4em 0;
+}
+#content code {
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    opacity: 0.9;
+}
+#content hr {
+    border: none;
+    border-top: 2px solid currentColor;
+    opacity: 0.3;
+    margin: 0.8em 0;
+}
+
+/* ── Cue markers ── */
+.cue-marker { display: none; }
+
+/* ── Progress bar ── */
+#progress-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: rgba(128, 128, 128, 0.15);
+    z-index: 100;
+}
+
+#progress-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.theme-classic      #progress-fill { background: rgba(255,255,255,0.4); }
+.theme-light         #progress-fill { background: rgba(0,0,0,0.3); }
+.theme-high-contrast #progress-fill { background: #FFD700; }
+.theme-green-screen  #progress-fill { background: rgba(255,255,255,0.5); }
+.theme-studio        #progress-fill { background: rgba(255,255,255,0.3); }
+.theme-warm          #progress-fill { background: rgba(245,222,179,0.4); }
+
+/* ── WPM display ── */
+#wpm-display {
+    position: fixed;
+    bottom: 8px;
+    right: 12px;
+    font-size: 11px;
+    opacity: 0.4;
+    z-index: 100;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Mirror mode ── */
+body.mirror { transform: scaleX(-1); }
+
+/* ── Countdown overlay ── */
+.countdown-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 120px;
+    font-weight: 700;
+    opacity: 0.7;
+    z-index: 200;
+    pointer-events: none;
+    animation: countdownPulse 0.8s ease-in-out;
+}
+
+@keyframes countdownPulse {
+    0%   { transform: scale(1.3); opacity: 0; }
+    50%  { opacity: 0.8; }
+    100% { transform: scale(1); opacity: 0.7; }
+}
+
+/* ── Welcome state ── */
+.welcome-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    opacity: 0.4;
+    text-align: center;
+}
+
+.welcome-message h1 {
+    font-size: 1.2em;
+    font-weight: 300;
+    margin-bottom: 0.3em;
+}
+
+.welcome-message p {
+    font-size: 0.6em;
+    font-weight: 300;
+}
