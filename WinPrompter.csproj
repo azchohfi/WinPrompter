@@ -15,6 +15,7 @@
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <NoWarn>MVVMTK0045</NoWarn>
         <RootNamespace>WinPrompter</RootNamespace>
 
         <!-- App Options -->
