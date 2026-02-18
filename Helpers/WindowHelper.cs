@@ -24,7 +24,7 @@ public static partial class WindowHelper
         appWindow.TitleBar.ExtendsContentIntoTitleBar = true;
         appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Collapsed;
         
-        // Remove any gray background from title bar
+        // Remove any gray background from title bar by setting all button colors to transparent
         appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
         appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
         appWindow.TitleBar.ButtonHoverBackgroundColor = Colors.Transparent;
