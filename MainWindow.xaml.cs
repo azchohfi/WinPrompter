@@ -514,6 +514,7 @@ public sealed partial class MainWindow : Window
 
     private void OpacitySlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
+        if (_bridge == null) return; // not yet initialized
         _vm.Opacity = e.NewValue / 100.0;
         WindowHelper.SetOpacity(this, _vm.Opacity);
         SaveSettings();

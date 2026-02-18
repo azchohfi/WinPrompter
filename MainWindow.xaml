@@ -112,7 +112,7 @@
                 <!-- Opacity -->
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                     <FontIcon Glyph="&#xE7B3;" FontSize="14" Opacity="0.7"/>
-                    <Slider x:Name="OpacitySlider" Width="80" Minimum="10" Maximum="100" Value="100"
+                    <Slider x:Name="OpacitySlider" Width="80" Minimum="10" Maximum="100"
                             ValueChanged="OpacitySlider_ValueChanged" VerticalAlignment="Center"/>
                 </StackPanel>
 
