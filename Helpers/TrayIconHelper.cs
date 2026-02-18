@@ -5,15 +5,15 @@ namespace WinPrompter.Helpers;
 
 /// <summary>
 /// Minimal Win32 system tray icon using Shell_NotifyIcon.
-/// Shows a tray icon with a right-click context menu (Show / Exit).
+/// Uses a hidden message-only window to avoid subclassing the main WinUI wndproc.
 /// </summary>
 public sealed partial class TrayIconHelper : IDisposable
 {
     private const int WM_APP_TRAYICON = 0x8000 + 1;
     private const int WM_COMMAND = 0x0111;
+    private const int WM_DESTROY = 0x0002;
     private const int NIM_ADD = 0x00;
     private const int NIM_DELETE = 0x02;
-    private const int NIM_MODIFY = 0x01;
     private const int NIF_MESSAGE = 0x01;
     private const int NIF_ICON = 0x02;
     private const int NIF_TIP = 0x04;
@@ -26,13 +26,13 @@ public sealed partial class TrayIconHelper : IDisposable
     private const int IDM_SHOW = 1001;
     private const int IDM_EXIT = 1002;
 
-    private IntPtr _hWnd;
+    private IntPtr _messageHwnd;
     private IntPtr _hIcon;
     private IntPtr _hMenu;
     private NOTIFYICONDATA _nid;
-    private readonly nint _origWndProc;
     private readonly WNDPROC _wndProcDelegate;
     private bool _disposed;
+    private ushort _classAtom;
 
     public event Action? ShowRequested;
     public event Action? ExitRequested;
@@ -41,10 +41,8 @@ public sealed partial class TrayIconHelper : IDisposable
 
     public TrayIconHelper(Window window)
     {
-        _hWnd = WindowNative.GetWindowHandle(window);
-
         // Load app icon from exe, fall back to default app icon
-        _hIcon = ExtractIcon(IntPtr.Zero, Environment.ProcessPath ?? "", 0);
+        _hIcon = ExtractIcon(GetModuleHandle(null), Environment.ProcessPath ?? "", 0);
         if (_hIcon == IntPtr.Zero)
             _hIcon = LoadIcon(IntPtr.Zero, new IntPtr(32512)); // IDI_APPLICATION
 
@@ -54,16 +52,27 @@ public sealed partial class TrayIconHelper : IDisposable
         AppendMenu(_hMenu, MF_SEPARATOR, 0, null);
         AppendMenu(_hMenu, MF_STRING, IDM_EXIT, "Exit");
 
-        // Subclass the window to intercept tray messages
+        // Create a hidden message-only window for tray callbacks
         _wndProcDelegate = TrayWndProc;
-        _origWndProc = SetWindowLongPtr(_hWnd, -4 /* GWL_WNDPROC */,
-            Marshal.GetFunctionPointerForDelegate(_wndProcDelegate));
+        var wc = new WNDCLASSEX
+        {
+            cbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
+            lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_wndProcDelegate),
+            hInstance = GetModuleHandle(null),
+            lpszClassName = "WinPrompterTray"
+        };
+        _classAtom = RegisterClassEx(ref wc);
+
+        // HWND_MESSAGE parent makes this a message-only window (invisible, no taskbar)
+        _messageHwnd = CreateWindowEx(0, "WinPrompterTray", "", 0,
+            0, 0, 0, 0, new IntPtr(-3) /* HWND_MESSAGE */, IntPtr.Zero,
+            GetModuleHandle(null), IntPtr.Zero);
 
         // Add tray icon
         _nid = new NOTIFYICONDATA
         {
             cbSize = (uint)Marshal.SizeOf<NOTIFYICONDATA>(),
-            hWnd = _hWnd,
+            hWnd = _messageHwnd,
             uID = 1,
             uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
             uCallbackMessage = WM_APP_TRAYICON,
@@ -81,15 +90,14 @@ public sealed partial class TrayIconHelper : IDisposable
             {
                 int eventId = (int)(lParam & 0xFFFF);
                 if (eventId == WM_LBUTTONDBLCLK)
-                {
                     ShowRequested?.Invoke();
-                }
                 else if (eventId == WM_RBUTTONUP)
                 {
                     GetCursorPos(out var pt);
                     SetForegroundWindow(hWnd);
-                    TrackPopupMenu(_hMenu, TPM_RIGHTALIGN | TPM_BOTTOMALIGN, pt.X, pt.Y, 0, hWnd, IntPtr.Zero);
-                    PostMessage(hWnd, 0 /* WM_NULL */, IntPtr.Zero, IntPtr.Zero);
+                    TrackPopupMenu(_hMenu, TPM_RIGHTALIGN | TPM_BOTTOMALIGN,
+                        pt.X, pt.Y, 0, hWnd, IntPtr.Zero);
+                    PostMessage(hWnd, 0, IntPtr.Zero, IntPtr.Zero);
                 }
                 return IntPtr.Zero;
             }
@@ -102,9 +110,9 @@ public sealed partial class TrayIconHelper : IDisposable
                 return IntPtr.Zero;
             }
         }
-        catch { /* Don't let exceptions in wndproc crash the app */ }
+        catch { }
 
-        return CallWindowProc(_origWndProc, hWnd, msg, wParam, lParam);
+        return DefWindowProc(hWnd, msg, wParam, lParam);
     }
 
     public void Dispose()
@@ -113,12 +121,10 @@ public sealed partial class TrayIconHelper : IDisposable
         _disposed = true;
 
         Shell_NotifyIcon(NIM_DELETE, ref _nid);
+        if (_messageHwnd != IntPtr.Zero) DestroyWindow(_messageHwnd);
         if (_hMenu != IntPtr.Zero) DestroyMenu(_hMenu);
         if (_hIcon != IntPtr.Zero) DestroyIcon(_hIcon);
-
-        // Restore original wndproc
-        if (_origWndProc != IntPtr.Zero)
-            SetWindowLongPtr(_hWnd, -4, _origWndProc);
+        if (_classAtom != 0) UnregisterClass("WinPrompterTray", GetModuleHandle(null));
 
         GC.SuppressFinalize(this);
     }
@@ -136,6 +142,23 @@ public sealed partial class TrayIconHelper : IDisposable
         public IntPtr hIcon;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
         public string szTip;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WNDCLASSEX
+    {
+        public uint cbSize;
+        public uint style;
+        public IntPtr lpfnWndProc;
+        public int cbClsExtra;
+        public int cbWndExtra;
+        public IntPtr hInstance;
+        public IntPtr hIcon;
+        public IntPtr hCursor;
+        public IntPtr hbrBackground;
+        public string? lpszMenuName;
+        public string lpszClassName;
+        public IntPtr hIconSm;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -181,19 +204,23 @@ public sealed partial class TrayIconHelper : IDisposable
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool DestroyIcon(IntPtr hIcon);
 
-    [LibraryImport("user32.dll", EntryPoint = "CallWindowProcW")]
-    private static partial IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool DestroyWindow(IntPtr hWnd);
 
-    private static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
-    {
-        if (IntPtr.Size == 8)
-            return SetWindowLongPtr64(hWnd, nIndex, dwNewLong);
-        return new IntPtr(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
-    }
+    [LibraryImport("user32.dll", EntryPoint = "DefWindowProcW")]
+    private static partial IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
-    private static partial IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "RegisterClassExW")]
+    private static extern ushort RegisterClassEx(ref WNDCLASSEX lpWndClass);
 
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongW")]
-    private static partial int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "CreateWindowExW")]
+    private static extern IntPtr CreateWindowEx(int exStyle, string className, string windowName,
+        int style, int x, int y, int w, int h, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "UnregisterClassW")]
+    private static extern bool UnregisterClass(string className, IntPtr hInstance);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial IntPtr GetModuleHandle(string? lpModuleName);
 }
