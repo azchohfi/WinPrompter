@@ -157,6 +157,9 @@ public sealed partial class MainWindow : Window
                     case "keydown":
                         HandleWebViewKeyDown(root);
                         break;
+                    case "rightclick":
+                        if (_vm.IsOverlayVisible) HideOverlay(); else ShowOverlay();
+                        break;
                 }
             });
         }
@@ -190,6 +193,9 @@ public sealed partial class MainWindow : Window
                                 break;
                             case "keydown":
                                 HandleWebViewKeyDown(root);
+                                break;
+                            case "rightclick":
+                                if (_vm.IsOverlayVisible) HideOverlay(); else ShowOverlay();
                                 break;
                         }
                     });

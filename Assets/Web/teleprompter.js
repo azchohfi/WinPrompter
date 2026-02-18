@@ -285,6 +285,12 @@
         }
     });
 
+    // Forward right-click to C# for toolbar toggle
+    document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        notify({ type: 'rightclick' });
+    });
+
     window.addEventListener('resize', function () {
         updateMetrics();
         updateWpm();

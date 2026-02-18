@@ -15,19 +15,24 @@
 
         <!-- Teleprompter WebView -->
         <WebView2 x:Name="PrompterWebView"
-                  DefaultBackgroundColor="Black" />
+                  DefaultBackgroundColor="Black"
+                  Margin="0,0,0,0"/>
 
-        <!-- Settings Overlay (hidden by default) -->
+        <!-- Settings Overlay at BOTTOM (hidden by default) -->
         <Grid x:Name="OverlayPanel"
               Visibility="Collapsed"
-              VerticalAlignment="Top"
+              VerticalAlignment="Bottom"
               HorizontalAlignment="Stretch"
               Padding="12,8"
+              CornerRadius="0,0,12,12"
               Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}">
 
-            <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Center"
-                        Spacing="8">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled"
+                          HorizontalScrollMode="Auto">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            Spacing="8">
 
                 <!-- Open File -->
                 <Button x:Name="BtnOpen" ToolTipService.ToolTip="Open Script (Ctrl+O)"
@@ -142,6 +147,7 @@
                     <FontIcon Glyph="&#xE897;" FontSize="16"/>
                 </Button>
             </StackPanel>
+            </ScrollViewer>
         </Grid>
 
         <!-- Voice status indicator -->
@@ -160,9 +166,9 @@
             </StackPanel>
         </Border>
 
-        <!-- Top hover zone to reveal overlay -->
+        <!-- Bottom hover zone to reveal overlay -->
         <Rectangle x:Name="HoverZone"
-                   VerticalAlignment="Top"
+                   VerticalAlignment="Bottom"
                    Height="30"
                    Fill="Transparent"
                    PointerEntered="HoverZone_PointerEntered"/>
