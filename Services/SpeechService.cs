@@ -27,17 +27,20 @@ public class SpeechService : IDisposable
 
         try
         {
+            App.LogCrash("SpeechDebug", new Exception("Creating SpeechRecognizer..."));
             _recognizer = new SpeechRecognizer();
 
-            // Use free-form dictation (on-device when speech pack is installed)
             var constraint = new SpeechRecognitionTopicConstraint(
                 SpeechRecognitionScenario.Dictation, "teleprompter");
             _recognizer.Constraints.Add(constraint);
 
+            App.LogCrash("SpeechDebug", new Exception("Compiling constraints..."));
             var result = await _recognizer.CompileConstraintsAsync();
             if (result.Status != SpeechRecognitionResultStatus.Success)
             {
-                ErrorOccurred?.Invoke($"Speech compile failed: {result.Status}");
+                var msg = $"Speech compile failed: {result.Status}";
+                App.LogCrash("SpeechCompile", new Exception(msg));
+                ErrorOccurred?.Invoke(msg);
                 return false;
             }
 
@@ -46,23 +49,29 @@ public class SpeechService : IDisposable
             _recognizer.ContinuousRecognitionSession.Completed += OnCompleted;
             _recognizer.HypothesisGenerated += OnHypothesisGenerated;
 
+            App.LogCrash("SpeechDebug", new Exception("Starting continuous session..."));
             await _recognizer.ContinuousRecognitionSession.StartAsync();
             _isListening = true;
             ListeningChanged?.Invoke(true);
+            App.LogCrash("SpeechDebug", new Exception("Voice recognition started successfully"));
             return true;
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            ErrorOccurred?.Invoke("Microphone access denied — enable in Windows Settings > Privacy > Microphone");
+            var msg = "Microphone access denied — enable in Windows Settings > Privacy > Microphone";
+            App.LogCrash("SpeechAuth", ex);
+            ErrorOccurred?.Invoke(msg);
             return false;
         }
         catch (Exception ex) when (ex.HResult == unchecked((int)0x80045509))
         {
+            App.LogCrash("SpeechPrivacy", ex);
             ErrorOccurred?.Invoke("Speech recognition not available — enable in Settings > Privacy > Speech");
             return false;
         }
         catch (Exception ex)
         {
+            App.LogCrash("SpeechStart", ex);
             ErrorOccurred?.Invoke($"Speech error (0x{ex.HResult:X}): {ex.Message}");
             return false;
         }
@@ -107,6 +116,7 @@ public class SpeechService : IDisposable
     {
         _isListening = false;
         ListeningChanged?.Invoke(false);
+        App.LogCrash("SpeechCompleted", new Exception($"Session ended: Status={args.Status}"));
 
         if (args.Status != SpeechRecognitionResultStatus.Success)
         {

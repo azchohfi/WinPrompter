@@ -599,11 +599,21 @@ public sealed partial class MainWindow : Window
                 VoiceStatusText.Text = "Starting voice...";
                 VoiceIndicator.Visibility = Visibility.Visible;
                 ShowOverlay();
+
+                // Capture the last error from the service (fires on background thread)
+                string? lastError = null;
+                void onError(string err) { lastError = err; }
+                _voiceService.ErrorOccurred += onError;
+
                 var started = await _voiceService.StartAsync();
+
+                _voiceService.ErrorOccurred -= onError;
+
                 if (!started)
                 {
-                    VoiceStatusText.Text = "Voice failed — check mic & speech settings";
-                    App.LogCrash("VoiceStart", new Exception("StartAsync returned false"));
+                    var msg = lastError ?? "Voice failed — check mic & speech settings";
+                    VoiceStatusText.Text = msg;
+                    App.LogCrash("VoiceStart", new Exception(msg));
                 }
                 else
                 {
