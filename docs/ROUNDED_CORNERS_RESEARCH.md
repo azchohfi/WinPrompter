@@ -61,6 +61,8 @@ Use the Desktop Window Manager (DWM) API with `DwmSetWindowAttribute` and `DWMWA
 
 ### Implementation
 ```csharp
+using System.Runtime.InteropServices;
+
 public static class WindowHelper
 {
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
@@ -84,7 +86,7 @@ public static class WindowHelper
     {
         var hWnd = WindowNative.GetWindowHandle(window);
         int pref = (int)preference;
-        DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int));
+        DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, Marshal.SizeOf<int>());
     }
 }
 ```

@@ -77,7 +77,7 @@ public static partial class WindowHelper
     {
         var hWnd = WindowNative.GetWindowHandle(window);
         int pref = (int)preference;
-        DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int));
+        DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, Marshal.SizeOf<int>());
     }
 }
 ```
