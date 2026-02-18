@@ -14,6 +14,8 @@ public static partial class WindowHelper
         return AppWindow.GetFromWindowId(windowId);
     }
 
+    private static bool _isHandlingResize;
+
     public static void ConfigureAsFloatingPrompter(Window window, int width = 1400, int height = 300)
     {
         var appWindow = GetAppWindow(window);
@@ -36,16 +38,20 @@ public static partial class WindowHelper
         // Square top corners, rounded bottom corners
         ApplyBottomRoundedCorners(window, width, height);
 
-        // Recenter horizontally when resized
+        // Recenter horizontally when resized (with re-entrancy guard)
         appWindow.Changed += (aw, args) =>
         {
-            if (args.DidSizeChange)
+            if (!args.DidSizeChange || _isHandlingResize) return;
+            _isHandlingResize = true;
+            try
             {
                 var display = DisplayArea.GetFromWindowId(aw.Id, DisplayAreaFallback.Primary);
                 int x = (display.WorkArea.Width - aw.Size.Width) / 2;
                 aw.Move(new Windows.Graphics.PointInt32(x, aw.Position.Y));
                 ApplyBottomRoundedCorners(window, aw.Size.Width, aw.Size.Height);
             }
+            catch { }
+            finally { _isHandlingResize = false; }
         };
     }
 
