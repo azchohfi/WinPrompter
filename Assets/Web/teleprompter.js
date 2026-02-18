@@ -71,8 +71,8 @@
         const percent = maxScroll > 0 ? (state.scrollPosition / maxScroll) * 100 : 0;
         progressFill.style.width = percent + '%';
 
-        // Throttle progress updates to ~4 per second
-        if (Math.floor(timestamp / 250) !== Math.floor((timestamp - clampedDelta) / 250)) {
+        // Throttle progress updates to ~1 per second
+        if (Math.floor(timestamp / 1000) !== Math.floor((timestamp - clampedDelta) / 1000)) {
             notify({ type: 'progress', percent: Math.round(percent) });
         }
 
