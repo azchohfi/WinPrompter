@@ -6,6 +6,9 @@ namespace WinPrompter
     {
         private MainWindow? _window;
 
+        /// <summary>File path passed on command line (set by Program.cs before app starts).</summary>
+        public static string? StartupFilePath { get; set; }
+
         public static string CrashLogPath { get; } = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "WinPrompter", "crash.log");

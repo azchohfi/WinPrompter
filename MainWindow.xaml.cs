@@ -1,6 +1,8 @@
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.Web.WebView2.Core;
+using System.IO.Pipes;
+using System.Text;
 using System.Text.Json;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
@@ -21,6 +23,7 @@ public sealed partial class MainWindow : Window
     private readonly VoiceAdvanceService _voiceService = new();
     private readonly ScriptWordIndex _scriptWordIndex = new();
     private TrayIconHelper? _trayIcon;
+    private CancellationTokenSource? _pipeCts;
 
     public MainWindow()
     {
@@ -103,6 +106,9 @@ public sealed partial class MainWindow : Window
         RootGrid.KeyDown += RootGrid_KeyDown;
         RootGrid.PointerPressed += RootGrid_PointerPressed;
 
+        // Start named pipe listener for single-instance file passing
+        StartPipeListener();
+
         // Initialize WebView2
         InitializeWebViewAsync();
     }
@@ -144,8 +150,17 @@ public sealed partial class MainWindow : Window
                     // Show welcome message if no script loaded
                     if (!_vm.HasScript)
                     {
-                        var welcomeHtml = "<div class='welcome-message'><h1>WinPrompter</h1><p>Right-click or hover at bottom for controls<br/>Ctrl+O to open · Ctrl+V to paste</p></div>";
-                        await _bridge.SetContentAsync(welcomeHtml);
+                        // Check for startup file from command line
+                        if (App.StartupFilePath != null && File.Exists(App.StartupFilePath))
+                        {
+                            await LoadFileFromPathAsync(App.StartupFilePath);
+                            App.StartupFilePath = null;
+                        }
+                        else
+                        {
+                            var welcomeHtml = "<div class='welcome-message'><h1>WinPrompter</h1><p>Right-click or hover at bottom for controls<br/>Ctrl+O to open · Ctrl+V to paste</p></div>";
+                            await _bridge.SetContentAsync(welcomeHtml);
+                        }
                     }
                 }
                 catch (Exception ex) { App.LogCrash("NavCompleted", ex); }
@@ -599,9 +614,59 @@ public sealed partial class MainWindow : Window
 
     private void ExitApp()
     {
+        _pipeCts?.Cancel();
         _trayIcon?.Dispose();
         _voiceService.Dispose();
         this.Close();
+    }
+
+    // ── Single-instance file pipe ──
+
+    private void StartPipeListener()
+    {
+        _pipeCts = new CancellationTokenSource();
+        var ct = _pipeCts.Token;
+        Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    using var server = new NamedPipeServerStream("WinPrompter_FilePipe",
+                        PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                    await server.WaitForConnectionAsync(ct);
+
+                    var buffer = new byte[4096];
+                    int bytesRead = await server.ReadAsync(buffer, ct);
+                    if (bytesRead > 0)
+                    {
+                        var filePath = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim();
+                        if (File.Exists(filePath))
+                        {
+                            DispatcherQueue.TryEnqueue(async () =>
+                            {
+                                this.Activate();
+                                await LoadFileFromPathAsync(filePath);
+                            });
+                        }
+                    }
+                }
+                catch (OperationCanceledException) { break; }
+                catch { /* pipe error — retry */ }
+            }
+        }, ct);
+    }
+
+    /// <summary>Load a file by path (used by CLI args and pipe IPC).</summary>
+    public async Task LoadFileFromPathAsync(string filePath)
+    {
+        try
+        {
+            var text = await File.ReadAllTextAsync(filePath);
+            _settingsService.AddRecentFile(filePath);
+            await LoadMarkdownAsync(text, Path.GetFileName(filePath));
+        }
+        catch (Exception ex) { App.LogCrash("LoadFilePath", ex); }
     }
 
     private void SaveSettings()
