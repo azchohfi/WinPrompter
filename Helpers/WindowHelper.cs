@@ -34,23 +34,6 @@ public static partial class WindowHelper
             presenter.IsAlwaysOnTop = true;
         }
 
-        var hWnd = WindowNative.GetWindowHandle(window);
-
-        // Replace window style with WS_POPUP | WS_THICKFRAME (frameless + resizable)
-        const int GWL_STYLE = -16;
-        const nint WS_THICKFRAME = 0x00040000;
-        const nint WS_VISIBLE = 0x10000000;
-        nint WS_POPUP = unchecked((nint)0x80000000);
-        SetWindowLongPtr(hWnd, GWL_STYLE, WS_POPUP | WS_THICKFRAME | WS_VISIBLE);
-
-        // Disable Windows 11 DWM rounded corners — square at top
-        int cornerPref = 1; // DWMWCP_DONOTROUND
-        DwmSetWindowAttribute(hWnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, ref cornerPref, sizeof(int));
-
-        // Force redraw with new styles
-        SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
-
         PositionTopCenter(appWindow, width, height);
 
         // Recenter horizontally when resized (with re-entrancy guard)
@@ -109,17 +92,5 @@ public static partial class WindowHelper
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
-    private const uint SWP_NOMOVE = 0x0002;
-    private const uint SWP_NOSIZE = 0x0001;
-    private const uint SWP_NOZORDER = 0x0004;
-    private const uint SWP_FRAMECHANGED = 0x0020;
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
-
-    [LibraryImport("dwmapi.dll")]
-    private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 }
