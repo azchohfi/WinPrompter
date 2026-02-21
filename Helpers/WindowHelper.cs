@@ -37,14 +37,14 @@ public static partial class WindowHelper
         // Strip all non-client chrome via Win32 styles to remove the gray bar
         var hWnd = WindowNative.GetWindowHandle(window);
         const int GWL_STYLE = -16;
-        const int WS_CAPTION = 0x00C00000;
-        const int WS_THICKFRAME = 0x00040000;
-        const int WS_SYSMENU = 0x00080000;
-        var style = GetWindowLong(hWnd, GWL_STYLE);
+        const nint WS_CAPTION = 0x00C00000;
+        const nint WS_THICKFRAME = 0x00040000;
+        const nint WS_SYSMENU = 0x00080000;
+        var style = GetWindowLongPtr(hWnd, GWL_STYLE);
         style &= ~WS_CAPTION;   // Remove title bar
         style |= WS_THICKFRAME; // Keep resize grip
         style &= ~WS_SYSMENU;   // Remove system menu
-        SetWindowLong(hWnd, GWL_STYLE, style);
+        SetWindowLongPtr(hWnd, GWL_STYLE, style);
 
         // Force redraw with new styles
         SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0,
@@ -93,18 +93,18 @@ public static partial class WindowHelper
     {
         var hWnd = WindowNative.GetWindowHandle(window);
         const int GWL_EXSTYLE = -20;
-        const int WS_EX_LAYERED = 0x00080000;
+        const nint WS_EX_LAYERED = 0x00080000;
 
-        var style = GetWindowLong(hWnd, GWL_EXSTYLE);
-        SetWindowLong(hWnd, GWL_EXSTYLE, style | WS_EX_LAYERED);
+        var style = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, style | WS_EX_LAYERED);
         SetLayeredWindowAttributes(hWnd, 0, (byte)(Math.Clamp(opacity, 0.1, 1.0) * 255), 0x02);
     }
 
-    [LibraryImport("user32.dll")]
-    private static partial int GetWindowLong(IntPtr hWnd, int nIndex);
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static partial nint GetWindowLongPtr(IntPtr hWnd, int nIndex);
 
-    [LibraryImport("user32.dll")]
-    private static partial int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static partial nint SetWindowLongPtr(IntPtr hWnd, int nIndex, nint dwNewLong);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
