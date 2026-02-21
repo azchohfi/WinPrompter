@@ -34,6 +34,22 @@ public static partial class WindowHelper
             presenter.IsAlwaysOnTop = true;
         }
 
+        // Strip all non-client chrome via Win32 styles to remove the gray bar
+        var hWnd = WindowNative.GetWindowHandle(window);
+        const int GWL_STYLE = -16;
+        const int WS_CAPTION = 0x00C00000;
+        const int WS_THICKFRAME = 0x00040000;
+        const int WS_SYSMENU = 0x00080000;
+        var style = GetWindowLong(hWnd, GWL_STYLE);
+        style &= ~WS_CAPTION;   // Remove title bar
+        style |= WS_THICKFRAME; // Keep resize grip
+        style &= ~WS_SYSMENU;   // Remove system menu
+        SetWindowLong(hWnd, GWL_STYLE, style);
+
+        // Force redraw with new styles
+        SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+
         PositionTopCenter(appWindow, width, height);
 
         // Recenter horizontally when resized (with re-entrancy guard)
@@ -89,6 +105,15 @@ public static partial class WindowHelper
 
     [LibraryImport("user32.dll")]
     private static partial int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOZORDER = 0x0004;
+    private const uint SWP_FRAMECHANGED = 0x0020;
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
