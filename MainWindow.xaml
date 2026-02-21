@@ -9,7 +9,6 @@
     Title="WinPrompter">
 
     <Grid x:Name="RootGrid" Background="Black"
-          CornerRadius="0,0,8,8"
           AllowDrop="True"
           DragOver="RootGrid_DragOver"
           Drop="RootGrid_Drop">
