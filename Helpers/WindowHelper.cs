@@ -34,17 +34,24 @@ public static partial class WindowHelper
             presenter.IsAlwaysOnTop = true;
         }
 
-        // Strip all non-client chrome via Win32 styles to remove the gray bar
         var hWnd = WindowNative.GetWindowHandle(window);
+
+        // Strip caption and sysmenu but keep thick frame for resize
         const int GWL_STYLE = -16;
         const nint WS_CAPTION = 0x00C00000;
-        const nint WS_THICKFRAME = 0x00040000;
         const nint WS_SYSMENU = 0x00080000;
         var style = GetWindowLongPtr(hWnd, GWL_STYLE);
-        style &= ~WS_CAPTION;   // Remove title bar
-        style |= WS_THICKFRAME; // Keep resize grip
-        style &= ~WS_SYSMENU;   // Remove system menu
+        style &= ~WS_CAPTION;
+        style &= ~WS_SYSMENU;
         SetWindowLongPtr(hWnd, GWL_STYLE, style);
+
+        // Disable Windows 11 DWM rounded corners — we want square at top
+        int cornerPref = 1; // DWMWCP_DONOTROUND
+        DwmSetWindowAttribute(hWnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, ref cornerPref, sizeof(int));
+
+        // Extend frame into client area so content covers the border entirely
+        var margins = new MARGINS { left = -1, right = -1, top = -1, bottom = -1 };
+        DwmExtendFrameIntoClientArea(hWnd, ref margins);
 
         // Force redraw with new styles
         SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0,
@@ -118,4 +125,16 @@ public static partial class WindowHelper
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
+
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS margins);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MARGINS
+    {
+        public int left, right, top, bottom;
+    }
 }
