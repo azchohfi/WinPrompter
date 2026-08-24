@@ -142,7 +142,9 @@ jobs:
           echo "path=$($pkg.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Set up MSStore CLI
-        uses: microsoft/microsoft-store-apppublisher@v1.4
+        uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
+        with:
+          version: v0.4.1
 
       - name: Configure Store Credentials
         shell: bash
